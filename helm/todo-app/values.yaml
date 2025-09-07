@@ -68,10 +68,18 @@ frontend:
       memory: "512Mi"
       cpu: "200m"
 
-gateway:
+ingress:
   enabled: true
-  className: istio
-  annotations: {}
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  hosts:
+    - host: todo-app.local
+      frontendPath: /()(.*)
+      userServicePath: /api/users(/|$)(.*)
+      todoServicePath: /api/todos(/|$)(.*)
+      pathType: ImplementationSpecific
 
 secrets:
   secretKey: "production-secret-key-change-this"
