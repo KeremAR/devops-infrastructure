@@ -130,29 +130,22 @@ spec:
 
         stage('Push to ECR') {
             steps {
-                container('kubectl') {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                         credentialsId: 'aws-credentials',
-                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
-                    ]) {
-                        sh '''
-                            echo "📦 Logging into ECR..."
-                            apk add --no-cache docker-cli aws-cli
-                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                // Jenkins agent'ında direkt çalıştır (docker container'ı içinde DEĞİL)
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                    sh '''
+                        echo "📦 Logging into ECR..."
+                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-                            echo "🚀 Pushing images to ECR..."
-                            docker push ${USER_SERVICE_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
-                            docker push ${USER_SERVICE_REPO}:latest || echo "Push failed, continuing..."
+                        echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
+                        docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
+                        docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
+                        docker push ${FRONTEND_REPO}:${IMAGE_TAG}
 
-                            docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
-                            docker push ${TODO_SERVICE_REPO}:latest || echo "Push failed, continuing..."
-
-                            docker push ${FRONTEND_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
-                            docker push ${FRONTEND_REPO}:latest || echo "Push failed, continuing..."
-                        '''
-                    }
+                        echo "🏷️ Pushing latest tags..."
+                        docker push ${USER_SERVICE_REPO}:latest
+                        docker push ${TODO_SERVICE_REPO}:latest
+                        docker push ${FRONTEND_REPO}:latest
+                    '''
                 }
             }
         }
