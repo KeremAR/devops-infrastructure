@@ -130,22 +130,27 @@ spec:
 
         stage('Push to ECR') {
             steps {
-                // Jenkins agent'ında direkt çalıştır (docker container'ı içinde DEĞİL)
-                withCredentials([aws(credentialsId: 'aws-credentials')]) {
-                    sh '''
-                        echo "📦 Logging into ECR..."
-                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                // Docker container'ı kullan (docker push için gerekli)
+                container('docker') {
+                    withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                        sh '''
+                            echo "📦 Installing AWS CLI..."
+                            apk add --no-cache aws-cli
 
-                        echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
-                        docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
-                        docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
-                        docker push ${FRONTEND_REPO}:${IMAGE_TAG}
+                            echo "📦 Logging into ECR..."
+                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-                        echo "🏷️ Pushing latest tags..."
-                        docker push ${USER_SERVICE_REPO}:latest
-                        docker push ${TODO_SERVICE_REPO}:latest
-                        docker push ${FRONTEND_REPO}:latest
-                    '''
+                            echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
+                            docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
+                            docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
+                            docker push ${FRONTEND_REPO}:${IMAGE_TAG}
+
+                            echo "🏷️ Pushing latest tags..."
+                            docker push ${USER_SERVICE_REPO}:latest
+                            docker push ${TODO_SERVICE_REPO}:latest
+                            docker push ${FRONTEND_REPO}:latest
+                        '''
+                    }
                 }
             }
         }
