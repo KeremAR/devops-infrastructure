@@ -61,8 +61,17 @@ spec:
                         container('docker') {
                             sh '''
                                 echo "🧪 Running backend tests..."
-                                docker-compose -f docker-compose.test.yml run --rm user-service-test
-                                docker-compose -f docker-compose.test.yml run --rm todo-service-test
+                                # Clean up any existing networks/containers
+                                docker-compose -f docker-compose.test.yml down -v --remove-orphans || true
+                                docker system prune -f || true
+
+                                echo "🧪 Running user-service tests..."
+                                docker build -t user-service-test -f user-service/Dockerfile .
+                                docker run --rm -v "$(pwd)/user-service:/app" user-service-test python -m pytest /app/test_app.py --cov=/app/app.py --cov-report=term-missing
+
+                                echo "🧪 Running todo-service tests..."
+                                docker build -t todo-service-test -f todo-service/Dockerfile .
+                                docker run --rm -v "$(pwd)/todo-service:/app" todo-service-test python -m pytest /app/test_app.py --cov=/app/app.py --cov-report=term-missing
                             '''
                         }
                     }
@@ -72,7 +81,8 @@ spec:
                         container('docker') {
                             sh '''
                                 echo "⚛️ Running frontend tests..."
-                                docker-compose -f docker-compose.test.yml run --rm frontend-test
+                                docker build -t frontend-test frontend/
+                                docker run --rm -v "$(pwd)/frontend:/app" frontend-test npm test -- --coverage
                             '''
                         }
                     }
