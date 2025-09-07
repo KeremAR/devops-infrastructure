@@ -1,0 +1,95 @@
+# Jenkins Helm Chart Values for EKS
+controller:
+  image:
+    registry: "docker.io"
+    repository: "jenkins/jenkins"
+    tag: "2.476-jdk17"
+
+  # Admin user configuration
+  admin:
+    username: "admin"
+    password: "jenkins123!"
+
+  # Resource requests and limits
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+
+  # Java options
+  javaOpts: "-Xms2g -Xmx2g"
+
+  # Service configuration
+  serviceType: LoadBalancer
+  serviceAnnotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+  # Persistent volume
+  persistence:
+    enabled: true
+    size: "20Gi"
+    storageClass: "gp2"
+
+  # Jenkins plugins to install - simplified list
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+
+  # Additional environment variables
+  additionalEnvironment:
+    - name: AWS_DEFAULT_REGION
+      value: "eu-central-1"
+
+  # Security context
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  # Jenkins Configuration as Code
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      welcome-message: |
+        jenkins:
+          systemMessage: "Welcome to Jenkins for Todo App CI/CD Pipeline!"
+      kubernetes-config: |
+        jenkins:
+          clouds:
+            - kubernetes:
+                name: "kubernetes"
+                serverUrl: "https://kubernetes.default"
+                namespace: "jenkins"
+                jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+
+# Agent configuration
+agent:
+  enabled: true
+  image:
+    registry: "docker.io"
+    repository: "jenkins/inbound-agent"
+    tag: "3261.v9c670a_4748a_9-1"
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
+# RBAC
+rbac:
+  create: true
+  readSecrets: true
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # We'll add this later for IRSA
