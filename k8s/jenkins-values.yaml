@@ -90,6 +90,7 @@ rbac:
 
 # Service Account
 serviceAccount:
-  create: true
+  create: false
+  name: jenkins
   annotations:
     eks.amazonaws.com/role-arn: ""  # We'll add this later for IRSA
