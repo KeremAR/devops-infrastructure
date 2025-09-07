@@ -1,13 +1,13 @@
 pipeline {
     agent any
-    
+
     environment {
         AWS_DEFAULT_REGION = 'us-west-2'
         ECR_REGISTRY = '123456789012.dkr.ecr.us-west-2.amazonaws.com'
         IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.substring(0, 8)}"
         SONAR_PROJECT_KEY = 'todo-app'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -17,7 +17,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Static Analysis & Security') {
             parallel {
                 stage('Lint Python') {
@@ -32,7 +32,7 @@ pipeline {
                         }
                     }
                 }
-                
+
                 stage('Lint Frontend') {
                     steps {
                         dir('frontend') {
@@ -43,7 +43,7 @@ pipeline {
                         }
                     }
                 }
-                
+
                 stage('Dockerfile Lint') {
                     steps {
                         sh '''
@@ -53,7 +53,7 @@ pipeline {
                         '''
                     }
                 }
-                
+
                 stage('SonarQube Analysis') {
                     steps {
                         withSonarQubeEnv('SonarQube') {
@@ -69,7 +69,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Unit Tests') {
             parallel {
                 stage('Backend Tests') {
@@ -81,7 +81,7 @@ pipeline {
                         '''
                     }
                 }
-                
+
                 stage('Frontend Tests') {
                     steps {
                         dir('frontend') {
@@ -94,7 +94,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -102,7 +102,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Images') {
             parallel {
                 stage('Build User Service') {
@@ -116,7 +116,7 @@ pipeline {
                         }
                     }
                 }
-                
+
                 stage('Build Todo Service') {
                     steps {
                         script {
@@ -128,7 +128,7 @@ pipeline {
                         }
                     }
                 }
-                
+
                 stage('Build Frontend') {
                     steps {
                         script {
@@ -142,7 +142,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Container Security Scan') {
             parallel {
                 stage('Trivy Scan User Service') {
@@ -150,13 +150,13 @@ pipeline {
                         sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${ECR_REGISTRY}/user-service:${IMAGE_TAG}"
                     }
                 }
-                
+
                 stage('Trivy Scan Todo Service') {
                     steps {
                         sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${ECR_REGISTRY}/todo-service:${IMAGE_TAG}"
                     }
                 }
-                
+
                 stage('Trivy Scan Frontend') {
                     steps {
                         sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${ECR_REGISTRY}/frontend:${IMAGE_TAG}"
@@ -164,7 +164,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Deploy to Staging') {
             when {
                 anyOf {
@@ -180,7 +180,7 @@ pipeline {
                         yq eval ".userService.image.tag = \"${IMAGE_TAG}\"" -i helm/todo-app/values-staging.yaml
                         yq eval ".todoService.image.tag = \"${IMAGE_TAG}\"" -i helm/todo-app/values-staging.yaml
                         yq eval ".frontend.image.tag = \"${IMAGE_TAG}\"" -i helm/todo-app/values-staging.yaml
-                        
+
                         # Commit and push changes to trigger ArgoCD
                         git config user.email "jenkins@company.com"
                         git config user.name "Jenkins CI"
@@ -192,12 +192,12 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             // Clean up
             sh 'docker system prune -f'
-            
+
             // Archive test results
             publishTestResults testResultsPattern: '**/test-results.xml'
             publishHTML([
@@ -209,7 +209,7 @@ pipeline {
                 reportName: 'Coverage Report'
             ])
         }
-        
+
         failure {
             emailext (
                 subject: "Pipeline Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
@@ -217,7 +217,7 @@ pipeline {
                 to: "${env.CHANGE_AUTHOR_EMAIL}"
             )
         }
-        
+
         success {
             echo 'Pipeline completed successfully!'
         }

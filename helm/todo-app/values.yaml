@@ -87,10 +87,10 @@ environments:
       limits:
         memory: "128Mi"
         cpu: "100m"
-  
+
   staging:
     replicaCount: 2
-    
+
   prod:
     replicaCount: 3
     resources:

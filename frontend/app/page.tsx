@@ -24,7 +24,7 @@ export default function Home() {
   const [token, setToken] = useState<string>('')
   const [showLogin, setShowLogin] = useState(true)
   const [newTodo, setNewTodo] = useState({ title: '', description: '' })
-  
+
   // Login/Register state
   const [authForm, setAuthForm] = useState({
     username: '',
@@ -62,17 +62,17 @@ export default function Home() {
         username: authForm.username,
         password: authForm.password
       })
-      
+
       const { access_token } = response.data
       setToken(access_token)
       localStorage.setItem('token', access_token)
-      
+
       // Get user info - we need to decode JWT or get user ID differently
       // For now, let's create a simple user object
       const userData = { id: 1, username: authForm.username, email: authForm.username + '@example.com' }
       setUser(userData)
       localStorage.setItem('user', JSON.stringify(userData))
-      
+
       fetchTodos(access_token)
     } catch (error) {
       alert('Login failed')
@@ -105,11 +105,11 @@ export default function Home() {
 
   const toggleTodo = async (todoId: number, completed: boolean) => {
     try {
-      const response = await axios.put(`${TODO_SERVICE_URL}/todos/${todoId}`, 
-        { completed }, 
+      const response = await axios.put(`${TODO_SERVICE_URL}/todos/${todoId}`,
+        { completed },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setTodos(todos.map(todo => 
+      setTodos(todos.map(todo =>
         todo.id === todoId ? response.data : todo
       ))
     } catch (error) {

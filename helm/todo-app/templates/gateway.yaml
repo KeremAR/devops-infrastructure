@@ -53,7 +53,7 @@ spec:
     backendRefs:
     - name: user-service
       port: {{ .Values.userService.service.port }}
-  # Todo service API routes  
+  # Todo service API routes
   - matches:
     - path:
         type: PathPrefix

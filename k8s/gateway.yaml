@@ -45,7 +45,7 @@ spec:
     backendRefs:
     - name: user-service
       port: 8001
-  # Todo service API routes  
+  # Todo service API routes
   - matches:
     - path:
         type: PathPrefix

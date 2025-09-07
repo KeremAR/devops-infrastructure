@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss').Config} */
+iu/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
