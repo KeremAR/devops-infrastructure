@@ -1,0 +1,38 @@
+services:
+  user-service-test:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    volumes:
+      - ./user-service:/app
+      - test_user_data:/app/data
+    environment:
+      - SECRET_KEY=test-secret-key
+    command: pytest test_app.py -v --cov=app --cov-report=term-missing
+
+  todo-service-test:
+    build:
+      context: .
+      dockerfile: todo-service/Dockerfile
+    volumes:
+      - ./todo-service:/app
+      - test_todo_data:/app/data
+    environment:
+      - SECRET_KEY=test-secret-key
+      - USER_SERVICE_URL=http://user-service-test:8001
+    command: pytest test_app.py -v --cov=app --cov-report=term-missing
+    depends_on:
+      - user-service-test
+
+  frontend-test:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install --legacy-peer-deps && npm test -- --coverage --watchAll=false"
+    environment:
+      - CI=true
+
+volumes:
+  test_user_data:
+  test_todo_data:

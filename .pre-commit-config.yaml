@@ -54,3 +54,19 @@ repos:
       # - id: check-yaml  # Disabled - K8s manifests use multi-document YAML
       - id: check-added-large-files
       - id: check-merge-conflict
+
+  # Test runner (pre-push)
+  - repo: local
+    hooks:
+      - id: run-tests
+        name: Run Backend Tests
+        entry: docker-compose -f docker-compose.test.yml run --rm user-service-test
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+      - id: run-todo-tests
+        name: Run Todo Service Tests
+        entry: docker-compose -f docker-compose.test.yml run --rm todo-service-test
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
