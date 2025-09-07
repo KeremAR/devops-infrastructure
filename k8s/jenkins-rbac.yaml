@@ -32,5 +32,5 @@ roleRef:
   name: jenkins-admin
 subjects:
 - kind: ServiceAccount
-  name: jenkins
+  name: default
   namespace: jenkins
