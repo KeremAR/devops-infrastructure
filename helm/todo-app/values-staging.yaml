@@ -1,25 +1,25 @@
 # Staging environment values
 global:
   environment: staging
-  imageRegistry: "your-registry.com/"
+  imageRegistry: "168155204271.dkr.ecr.eu-central-1.amazonaws.com/"
 
 userService:
   replicaCount: 2
   image:
-    repository: your-registry.com/user-service
-    tag: staging
+    repository: 168155204271.dkr.ecr.eu-central-1.amazonaws.com/todo-user-service
+    tag: latest
 
 todoService:
   replicaCount: 2
   image:
-    repository: your-registry.com/todo-service
-    tag: staging
+    repository: 168155204271.dkr.ecr.eu-central-1.amazonaws.com/todo-todo-service
+    tag: latest
 
 frontend:
   replicaCount: 2
   image:
-    repository: your-registry.com/frontend
-    tag: staging
+    repository: 168155204271.dkr.ecr.eu-central-1.amazonaws.com/todo-frontend
+    tag: latest
 
 secrets:
   secretKey: "staging-secret-key-from-aws-secrets-manager"
