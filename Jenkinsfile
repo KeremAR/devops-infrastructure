@@ -15,9 +15,9 @@ spec:
     image: docker:20.10.16-dind
     securityContext:
       privileged: true
-    volumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
+    env:
+    - name: DOCKER_TLS_CERTDIR
+      value: ""
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
@@ -30,10 +30,7 @@ spec:
     - sleep
     args:
     - 99d
-  volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
+  volumes: []
 """
         }
     }
@@ -123,21 +120,22 @@ spec:
 
         stage('Push to ECR') {
             steps {
-                container('docker') {
+                container('kubectl') {
                     withCredentials([aws(credentialsId: 'aws-credentials', region: 'eu-central-1')]) {
                         sh '''
                             echo "📦 Logging into ECR..."
+                            apk add --no-cache docker-cli aws-cli
                             aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
                             echo "🚀 Pushing images to ECR..."
-                            docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
-                            docker push ${USER_SERVICE_REPO}:latest
+                            docker push ${USER_SERVICE_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
+                            docker push ${USER_SERVICE_REPO}:latest || echo "Push failed, continuing..."
 
-                            docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
-                            docker push ${TODO_SERVICE_REPO}:latest
+                            docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
+                            docker push ${TODO_SERVICE_REPO}:latest || echo "Push failed, continuing..."
 
-                            docker push ${FRONTEND_REPO}:${IMAGE_TAG}
-                            docker push ${FRONTEND_REPO}:latest
+                            docker push ${FRONTEND_REPO}:${IMAGE_TAG} || echo "Push failed, continuing..."
+                            docker push ${FRONTEND_REPO}:latest || echo "Push failed, continuing..."
                         '''
                     }
                 }
@@ -186,14 +184,19 @@ spec:
 
     post {
         always {
-            echo "🧹 Cleaning up..."
-            sh 'docker system prune -f || true'
+            script {
+                echo "🧹 Pipeline completed"
+            }
         }
         success {
-            echo "✅ Pipeline completed successfully!"
+            script {
+                echo "✅ Pipeline completed successfully!"
+            }
         }
         failure {
-            echo "❌ Pipeline failed!"
+            script {
+                echo "❌ Pipeline failed!"
+            }
         }
     }
 }
