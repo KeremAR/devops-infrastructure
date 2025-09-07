@@ -36,8 +36,7 @@ spec:
     }
 
     environment {
-        // Jenkins Global Environment Variables kullanılacak:
-        // AWS_DEFAULT_REGION, ECR_REGISTRY, USER_SERVICE_REPO, TODO_SERVICE_REPO, FRONTEND_REPO
+        // Pipeline Configuration (AWS/ECR variables come from Jenkins Global Properties)
         IMAGE_TAG = "${params.IMAGE_TAG_OVERRIDE ?: BUILD_NUMBER}"
         KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
         TARGET_ENV = "${params.ENVIRONMENT}"
@@ -138,7 +137,16 @@ spec:
                             apk add --no-cache aws-cli
 
                             echo "📦 Logging into ECR..."
-                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            set +e  # Don't exit on error
+                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} > /tmp/ecr_token
+                            if [ $? -eq 0 ]; then
+                                cat /tmp/ecr_token | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                                rm -f /tmp/ecr_token
+                            else
+                                echo "❌ Failed to get ECR login token"
+                                exit 1
+                            fi
+                            set -e  # Re-enable exit on error
 
                             echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
                             docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
