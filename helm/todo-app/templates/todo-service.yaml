@@ -1,0 +1,70 @@
+{{- if .Values.todoService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    component: todo-service
+spec:
+  replicas: {{ .Values.todoService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "todo-app.selectorLabels" . | nindent 6 }}
+      component: todo-service
+  template:
+    metadata:
+      labels:
+        {{- include "todo-app.selectorLabels" . | nindent 8 }}
+        component: todo-service
+    spec:
+      containers:
+      - name: todo-service
+        image: "{{ .Values.global.imageRegistry }}{{ .Values.todoService.image.repository }}:{{ .Values.todoService.image.tag }}"
+        imagePullPolicy: {{ .Values.todoService.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.todoService.service.port }}
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: secret-key
+        - name: USER_SERVICE_URL
+          value: "http://user-service:{{ .Values.userService.service.port }}"
+        {{- if .Values.todoService.healthCheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.todoService.healthCheck.path }}
+            port: {{ .Values.todoService.service.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.todoService.healthCheck.path }}
+            port: {{ .Values.todoService.service.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        {{- end }}
+        resources:
+          {{- toYaml .Values.todoService.resources | nindent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    component: todo-service
+spec:
+  selector:
+    {{- include "todo-app.selectorLabels" . | nindent 4 }}
+    component: todo-service
+  ports:
+  - port: {{ .Values.todoService.service.port }}
+    targetPort: {{ .Values.todoService.service.port }}
+    protocol: TCP
+  type: {{ .Values.todoService.service.type }}
+{{- end }}

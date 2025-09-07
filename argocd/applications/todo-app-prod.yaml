@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: todo-app-prod
+  namespace: argocd
+  labels:
+    environment: production
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-username/todo-app.git
+    targetRevision: HEAD
+    path: helm/todo-app
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-prod.yaml
+      parameters:
+      - name: global.environment
+        value: prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: todo-app-prod
+  syncPolicy:
+    # Manual sync for production - requires approval
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

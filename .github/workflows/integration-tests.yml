@@ -1,0 +1,83 @@
+name: Integration Tests
+
+on:
+  deployment_status
+
+jobs:
+  integration-tests:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'staging'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install pytest pytest-asyncio httpx
+        npm install -g newman
+        
+    - name: Wait for services to be ready
+      run: |
+        # Wait for staging environment to be fully deployed
+        sleep 60
+        
+    - name: Run API Integration Tests
+      env:
+        STAGING_URL: ${{ secrets.STAGING_URL }}
+      run: |
+        python -m pytest tests/integration/ -v --staging-url=${STAGING_URL}
+        
+    - name: Run Postman Collections
+      env:
+        STAGING_URL: ${{ secrets.STAGING_URL }}
+      run: |
+        newman run tests/postman/todo-api.postman_collection.json \
+          --env-var "base_url=${STAGING_URL}" \
+          --reporters cli,junit \
+          --reporter-junit-export results.xml
+          
+    - name: Run End-to-End Tests
+      env:
+        STAGING_URL: ${{ secrets.STAGING_URL }}
+      run: |
+        cd frontend
+        npm ci
+        npx playwright install
+        npx playwright test --config=playwright.staging.config.js
+        
+    - name: Trigger Production Deployment
+      if: success()
+      uses: peter-evans/repository-dispatch@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: deploy-production
+        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+        
+    - name: Notify Slack on Success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "Integration tests passed! Ready for production deployment."
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        
+    - name: Notify Slack on Failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "Integration tests failed! Production deployment blocked."
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

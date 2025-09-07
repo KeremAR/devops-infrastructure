@@ -1,0 +1,42 @@
+# Development environment values
+global:
+  environment: dev
+
+userService:
+  replicaCount: 1
+  image:
+    tag: dev
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+todoService:
+  replicaCount: 1
+  image:
+    tag: dev
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: dev
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+
+secrets:
+  secretKey: "dev-secret-key"

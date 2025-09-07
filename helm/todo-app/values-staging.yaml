@@ -1,0 +1,25 @@
+# Staging environment values
+global:
+  environment: staging
+  imageRegistry: "your-registry.com/"
+
+userService:
+  replicaCount: 2
+  image:
+    repository: your-registry.com/user-service
+    tag: staging
+
+todoService:
+  replicaCount: 2
+  image:
+    repository: your-registry.com/todo-service
+    tag: staging
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: your-registry.com/frontend
+    tag: staging
+
+secrets:
+  secretKey: "staging-secret-key-from-aws-secrets-manager"

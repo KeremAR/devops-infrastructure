@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-service
+  namespace: todo-app
+  labels:
+    app: todo-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: todo-service
+  template:
+    metadata:
+      labels:
+        app: todo-service
+    spec:
+      containers:
+      - name: todo-service
+        image: todo-service:latest
+        ports:
+        - containerPort: 8002
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: secret-key
+        - name: USER_SERVICE_URL
+          value: "http://user-service:8001"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-service
+  namespace: todo-app
+  labels:
+    app: todo-service
+spec:
+  selector:
+    app: todo-service
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+  type: ClusterIP
