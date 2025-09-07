@@ -131,7 +131,12 @@ spec:
         stage('Push to ECR') {
             steps {
                 container('kubectl') {
-                    withCredentials([aws(credentialsId: 'aws-credentials', region: 'eu-central-1')]) {
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: 'aws-credentials',
+                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                    ]) {
                         sh '''
                             echo "📦 Logging into ECR..."
                             apk add --no-cache docker-cli aws-cli
