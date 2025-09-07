@@ -168,6 +168,9 @@ spec:
                 container('helm') {
                     withKubeConfig([credentialsId: 'kubeconfig']) {
                         sh '''
+                            echo "📦 Installing AWS CLI for EKS auth..."
+                            apk add --no-cache aws-cli
+
                             echo "🚀 Deploying to ${TARGET_ENV} environment..."
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
                                 --namespace todo-app-${TARGET_ENV} \
@@ -188,6 +191,9 @@ spec:
                 container('kubectl') {
                     withKubeConfig([credentialsId: 'kubeconfig']) {
                         sh '''
+                            echo "📦 Installing AWS CLI for EKS auth..."
+                            apk add --no-cache aws-cli
+
                             echo "🧪 Running integration tests on ${TARGET_ENV}..."
                             kubectl wait --for=condition=ready pod -l app=todo-app -n todo-app-${TARGET_ENV} --timeout=300s
 
