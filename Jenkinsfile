@@ -166,7 +166,7 @@ spec:
         stage('Deploy to Environment') {
             steps {
                 container('helm') {
-                    withCredentials([kubeconfigFile(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    withKubeConfig([credentialsId: 'kubeconfig']) {
                         sh '''
                             echo "🚀 Deploying to ${TARGET_ENV} environment..."
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
@@ -186,7 +186,7 @@ spec:
         stage('Integration Tests') {
             steps {
                 container('kubectl') {
-                    withCredentials([kubeconfigFile(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    withKubeConfig([credentialsId: 'kubeconfig']) {
                         sh '''
                             echo "🧪 Running integration tests on ${TARGET_ENV}..."
                             kubectl wait --for=condition=ready pod -l app=todo-app -n todo-app-${TARGET_ENV} --timeout=300s
