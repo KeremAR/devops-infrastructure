@@ -81,7 +81,8 @@ spec:
                         container('docker') {
                             sh '''
                                 echo "⚛️ Running frontend tests..."
-                                docker build -t frontend-test frontend/
+                                # Build test image without production flag
+                                docker build -t frontend-test frontend/ --target builder
                                 docker run --rm -v "$(pwd)/frontend:/app" frontend-test npm test -- --coverage
                             '''
                         }
