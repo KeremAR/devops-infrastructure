@@ -2,6 +2,7 @@
 global:
   environment: staging
   imageRegistry: ""
+  ingressUrl: "http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com"
 
 userService:
   replicaCount: 2
@@ -24,8 +25,7 @@ frontend:
     tag: latest
     pullPolicy: Always
   env:
-    userServiceUrl: "http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/users"
-    todoServiceUrl: "http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/todos"
+    # URLs will be constructed from global.ingressUrl in templates
 
 secrets:
   secretKey: "staging-secret-key-from-aws-secrets-manager"

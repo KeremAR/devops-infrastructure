@@ -31,6 +31,12 @@ spec:
     - sleep
     args:
     - 99d
+  - name: aws-cli
+    image: amazon/aws-cli:latest
+    command:
+    - sleep
+    args:
+    - 99d
   volumes: []
 """
         }
@@ -41,6 +47,10 @@ spec:
         IMAGE_TAG = "${params.IMAGE_TAG_OVERRIDE ?: BUILD_NUMBER}"
         KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
         TARGET_ENV = "${params.ENVIRONMENT}"
+
+        // Cluster configuration - dynamically set based on environment
+        EKS_CLUSTER_NAME = "${TARGET_ENV}-cluster"
+        AWS_REGION = 'eu-central-1'
     }
 
     stages {
@@ -118,21 +128,8 @@ spec:
                     steps {
                         container('docker') {
                             sh '''
-                                echo "🏗️ Building frontend image with environment variables..."
-
-                                # Set build args based on target environment
-                                if [ "${TARGET_ENV}" = "staging" ]; then
-                                    INGRESS_URL="http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com"
-                                elif [ "${TARGET_ENV}" = "prod" ]; then
-                                    INGRESS_URL="https://your-prod-domain.com"
-                                else
-                                    INGRESS_URL="http://localhost"
-                                fi
-
-                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} \
-                                    --build-arg NEXT_PUBLIC_USER_SERVICE_URL="${INGRESS_URL}/api/users" \
-                                    --build-arg NEXT_PUBLIC_TODO_SERVICE_URL="${INGRESS_URL}/api/todos" \
-                                    frontend/
+                                echo "🏗️ Building frontend image..."
+                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} frontend/
                                 docker tag ${FRONTEND_REPO}:${IMAGE_TAG} ${FRONTEND_REPO}:latest
                             '''
                         }
@@ -179,12 +176,18 @@ spec:
 
         stage('Deploy to Environment') {
             steps {
-                container('helm') {
-                    withKubeConfig([credentialsId: 'kubeconfig']) {
+                script {
+                    // First authenticate with EKS using aws-cli container
+                    container('aws-cli') {
                         sh '''
-                            echo "📦 Installing AWS CLI for EKS auth..."
-                            apk add --no-cache aws-cli
+                            echo "🔐 Authenticating with EKS cluster..."
+                            aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
+                        '''
+                    }
 
+                    // Then deploy with helm container
+                    container('helm') {
+                        sh '''
                             echo "🚀 Deploying to ${TARGET_ENV} environment..."
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
                                 --namespace todo-app \
