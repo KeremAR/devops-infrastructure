@@ -152,24 +152,46 @@ async def health_check():
 async def register(user: UserCreate):
     conn = get_db()
     try:
-        # Check if user exists
-        existing = conn.execute(
-            "SELECT id FROM users WHERE username = ? OR email = ?",
-            (user.username, user.email),
-        ).fetchone()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            existing = conn.execute(
+                "SELECT id FROM users WHERE username = ? OR email = ?",
+                (user.username, user.email),
+            ).fetchone()
 
-        if existing:
-            raise HTTPException(status_code=400, detail="User already exists")
+            if existing:
+                raise HTTPException(status_code=400, detail="User already exists")
 
-        # Create user
-        hashed_password = get_password_hash(user.password)
-        cursor = conn.execute(
-            "INSERT INTO users (username, email, hashed_password) VALUES (?, ?, ?)",
-            (user.username, user.email, hashed_password),
-        )
-        conn.commit()
+            # Create user
+            hashed_password = get_password_hash(user.password)
+            cursor = conn.execute(
+                "INSERT INTO users (username, email, hashed_password) VALUES (?, ?, ?)",
+                (user.username, user.email, hashed_password),
+            )
+            conn.commit()
+            return User(id=cursor.lastrowid, username=user.username, email=user.email)
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s OR email = %s",
+                (user.username, user.email),
+            )
+            existing = cursor.fetchone()
 
-        return User(id=cursor.lastrowid, username=user.username, email=user.email)
+            if existing:
+                raise HTTPException(status_code=400, detail="User already exists")
+
+            # Create user
+            hashed_password = get_password_hash(user.password)
+            cursor.execute(
+                """INSERT INTO users (username, email, hashed_password)
+                   VALUES (%s, %s, %s) RETURNING id""",
+                (user.username, user.email, hashed_password),
+            )
+            user_id = cursor.fetchone()["id"]
+            conn.commit()
+            return User(id=user_id, username=user.username, email=user.email)
     finally:
         conn.close()
 
@@ -178,10 +200,20 @@ async def register(user: UserCreate):
 async def login(user_login: UserLogin):
     conn = get_db()
     try:
-        user = conn.execute(
-            "SELECT id, username, hashed_password FROM users WHERE username = ?",
-            (user_login.username,),
-        ).fetchone()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            user = conn.execute(
+                "SELECT id, username, hashed_password FROM users WHERE username = ?",
+                (user_login.username,),
+            ).fetchone()
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, username, hashed_password FROM users WHERE username = %s",
+                (user_login.username,),
+            )
+            user = cursor.fetchone()
 
         if not user or not verify_password(
             user_login.password, user["hashed_password"]
@@ -200,9 +232,18 @@ async def login(user_login: UserLogin):
 async def get_user(user_id: int):
     conn = get_db()
     try:
-        user = conn.execute(
-            "SELECT id, username, email FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            user = conn.execute(
+                "SELECT id, username, email FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, username, email FROM users WHERE id = %s", (user_id,)
+            )
+            user = cursor.fetchone()
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -217,9 +258,16 @@ async def get_all_users():
     """Admin endpoint to get all users"""
     conn = get_db()
     try:
-        users = conn.execute(
-            "SELECT id, username, email FROM users ORDER BY id"
-        ).fetchall()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            users = conn.execute(
+                "SELECT id, username, email FROM users ORDER BY id"
+            ).fetchall()
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, username, email FROM users ORDER BY id")
+            users = cursor.fetchall()
 
         return [
             User(id=user["id"], username=user["username"], email=user["email"])

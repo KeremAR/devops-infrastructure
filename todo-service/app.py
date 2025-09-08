@@ -150,16 +150,27 @@ async def health_check():
 async def create_todo(todo: TodoCreate, user_id: int = Depends(verify_token)):
     conn = get_db()
     try:
-        cursor = conn.execute(
-            "INSERT INTO todos (title, description, user_id) VALUES (?, ?, ?)",
-            (todo.title, todo.description, user_id),
-        )
-        conn.commit()
-
-        # Get the created todo
-        created_todo = conn.execute(
-            "SELECT * FROM todos WHERE id = ?", (cursor.lastrowid,)
-        ).fetchone()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            cursor = conn.execute(
+                "INSERT INTO todos (title, description, user_id) VALUES (?, ?, ?)",
+                (todo.title, todo.description, user_id),
+            )
+            conn.commit()
+            # Get the created todo
+            created_todo = conn.execute(
+                "SELECT * FROM todos WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO todos (title, description, user_id)
+                   VALUES (%s, %s, %s) RETURNING *""",
+                (todo.title, todo.description, user_id),
+            )
+            created_todo = cursor.fetchone()
+            conn.commit()
 
         return Todo(
             id=created_todo["id"],
@@ -177,9 +188,20 @@ async def create_todo(todo: TodoCreate, user_id: int = Depends(verify_token)):
 async def get_todos(user_id: int = Depends(verify_token)):
     conn = get_db()
     try:
-        todos = conn.execute(
-            "SELECT * FROM todos WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
-        ).fetchall()
+        if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+            # SQLite syntax
+            todos = conn.execute(
+                "SELECT * FROM todos WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            ).fetchall()
+        else:
+            # PostgreSQL syntax
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM todos WHERE user_id = %s ORDER BY created_at DESC",
+                (user_id,),
+            )
+            todos = cursor.fetchall()
 
         return [
             Todo(
