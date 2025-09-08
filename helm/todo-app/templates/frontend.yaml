@@ -26,10 +26,10 @@ spec:
         ports:
         - containerPort: {{ .Values.frontend.service.port }}
         env:
-        - name: USER_SERVICE_URL
-          value: "http://user-service:{{ .Values.userService.service.port }}"
-        - name: TODO_SERVICE_URL
-          value: "http://todo-service:{{ .Values.todoService.service.port }}"
+        - name: NEXT_PUBLIC_USER_SERVICE_URL
+          value: {{ .Values.frontend.env.userServiceUrl | default (printf "http://user-service:%d" (.Values.userService.service.port | int)) | quote }}
+        - name: NEXT_PUBLIC_TODO_SERVICE_URL
+          value: {{ .Values.frontend.env.todoServiceUrl | default (printf "http://todo-service:%d" (.Values.todoService.service.port | int)) | quote }}
         livenessProbe:
           httpGet:
             path: /
