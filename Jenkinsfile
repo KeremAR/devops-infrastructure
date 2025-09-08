@@ -141,31 +141,27 @@ spec:
         stage('Push to ECR') {
             steps {
                 script {
-                    // First get ECR token using aws-cli container
-                    container('aws-cli') {
+                    container('docker') {
                         withCredentials([aws(credentialsId: 'aws-credentials')]) {
                             sh '''
-                                echo "📦 Logging into ECR..."
+                                # Install AWS CLI in docker container for ECR authentication
+                                echo "📦 Installing AWS CLI and logging into ECR..."
+                                apk add --no-cache aws-cli
+
+                                # Login to ECR
                                 aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+                                echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
+                                docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
+                                docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
+                                docker push ${FRONTEND_REPO}:${IMAGE_TAG}
+
+                                echo "🏷️ Pushing latest tags..."
+                                docker push ${USER_SERVICE_REPO}:latest
+                                docker push ${TODO_SERVICE_REPO}:latest
+                                docker push ${FRONTEND_REPO}:latest
                             '''
                         }
-                    }
-
-                    // Then push images using docker container
-                    container('docker') {
-                        sh '''
-                            set -e  # Re-enable exit on error
-
-                            echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
-                            docker push ${USER_SERVICE_REPO}:${IMAGE_TAG}
-                            docker push ${TODO_SERVICE_REPO}:${IMAGE_TAG}
-                            docker push ${FRONTEND_REPO}:${IMAGE_TAG}
-
-                            echo "🏷️ Pushing latest tags..."
-                            docker push ${USER_SERVICE_REPO}:latest
-                            docker push ${TODO_SERVICE_REPO}:latest
-                            docker push ${FRONTEND_REPO}:latest
-                        '''
                     }
                 }
             }
