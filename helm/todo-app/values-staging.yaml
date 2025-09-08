@@ -1,7 +1,7 @@
 # Staging environment values
 global:
   environment: staging
-  imageRegistry: "168155204271.dkr.ecr.eu-central-1.amazonaws.com/"
+  imageRegistry: ""
 
 userService:
   replicaCount: 2
