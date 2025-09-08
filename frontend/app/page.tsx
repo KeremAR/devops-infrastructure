@@ -32,9 +32,8 @@ export default function Home() {
     password: ''
   })
 
-  // Hardcode staging URLs for now - will be replaced by Jenkins build args
-  const USER_SERVICE_URL = 'http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/users'
-  const TODO_SERVICE_URL = 'http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/todos'
+  const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8001'
+  const TODO_SERVICE_URL = process.env.NEXT_PUBLIC_TODO_SERVICE_URL || 'http://localhost:8002'
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
