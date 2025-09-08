@@ -178,7 +178,7 @@ async def create_todo(todo: TodoCreate, user_id: int = Depends(verify_token)):
             description=created_todo["description"],
             completed=bool(created_todo["completed"]),
             user_id=created_todo["user_id"],
-            created_at=created_todo["created_at"],
+            created_at=str(created_todo["created_at"]),
         )
     finally:
         conn.close()
@@ -210,7 +210,7 @@ async def get_todos(user_id: int = Depends(verify_token)):
                 description=todo["description"],
                 completed=bool(todo["completed"]),
                 user_id=todo["user_id"],
-                created_at=todo["created_at"],
+                created_at=str(todo["created_at"]),
             )
             for todo in todos
         ]
@@ -326,7 +326,7 @@ async def get_all_todos():
                 description=todo["description"],
                 completed=bool(todo["completed"]),
                 user_id=todo["user_id"],
-                created_at=todo["created_at"],
+                created_at=str(todo["created_at"]),
             )
             for todo in todos
         ]
