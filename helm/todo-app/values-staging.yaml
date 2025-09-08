@@ -20,6 +20,7 @@ frontend:
   image:
     repository: 168155204271.dkr.ecr.eu-central-1.amazonaws.com/todo-frontend
     tag: latest
+    pullPolicy: Always
   env:
     userServiceUrl: "http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/users"
     todoServiceUrl: "http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com/api/todos"
