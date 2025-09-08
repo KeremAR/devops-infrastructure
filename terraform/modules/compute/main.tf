@@ -112,7 +112,7 @@ resource "aws_eks_node_group" "main" {
   capacity_type  = each.value.capacity_type
   instance_types = each.value.instance_types
   version        = var.cluster_version
-  ami_type       = "AL2023_x86_64_STANDARD"
+  ami_type       = "AL2_x86_64"
 
   scaling_config {
     desired_size = each.value.desired_size

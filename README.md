@@ -170,12 +170,109 @@ terraform apply -var-file="prod.tfvars"
 - Pre-commit hooks for code quality
 
 ### 🔄 In Progress
-- EKS cluster Kubernetes version upgrade (1.29 → 1.30)
+- Backend database integration for staging environment
 
 ### ⚠️ Known Issues
 - **Backend Database Layer**: Services hardcoded to SQLite, need dynamic PostgreSQL connection
 - **Environment Detection**: Missing `ENVIRONMENT` variable handling in backend services
 - **Database Abstraction**: No connection pooling or ORM layer for multi-environment support
+
+### 🔧 Infrastructure Gotchas
+- **EKS StorageClass Issue**: Default `gp2` uses `WaitForFirstConsumer` causing PVC circular dependency
+  - **Solution**: Use `gp2-immediate` StorageClass with `volumeBindingMode: Immediate`
+  - **File**: `k8s/gp2-immediate-storageclass.yaml`
+  - **Apply**: `kubectl apply -f k8s/gp2-immediate-storageclass.yaml`
+- **Version Upgrades**: EKS version upgrades recreate all nodes, breaking existing workloads
+  - **Lesson**: Avoid frequent version upgrades in staging; use stable versions
+- **Missing app-secrets**: Backend pods fail with `CreateContainerConfigError` due to missing secret
+  - **Root Cause**: Helm chart missing `app-secrets` template (only has `db-secrets`)
+  - **Manual Fix**: `kubectl create secret generic app-secrets -n todo-app --from-literal=secret-key=staging-secret-key-from-aws-secrets-manager`
+  - **Proper Solution**: Add `app-secrets` template to Helm chart
+
+### 🛠️ Jenkins Setup Steps
+1. **Deploy Jenkins**:
+   ```bash
+   kubectl create namespace jenkins
+   kubectl apply -f k8s/gp2-immediate-storageclass.yaml
+   kubectl apply -f k8s/jenkins-rbac.yaml
+   helm install jenkins jenkins/jenkins -f k8s/jenkins-values.yaml -n jenkins
+   ```
+
+2. **Install NGINX Ingress Controller**:
+   ```bash
+   # Install NGINX Ingress Controller for public LoadBalancer access
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/aws/deploy.yaml
+
+   # Wait for LoadBalancer to get external IP
+   kubectl get svc -n ingress-nginx -w
+
+   # Get LoadBalancer URL
+   kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+   ```
+
+3. **Access Jenkins**:
+   ```bash
+   # Get admin password
+   kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password && echo
+
+   # Get LoadBalancer external IP
+   kubectl get svc jenkins -n jenkins -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+   # Access: http://EXTERNAL-IP:8080 (admin / password-from-step-1)
+
+   # Alternative: Port forward for local access
+   kubectl port-forward svc/jenkins 8080:8080 -n jenkins
+   ```
+
+4. **Configure Jenkins Credentials**:
+
+   **Required Plugins**: GitHub, Kubernetes CLI, AWS CLI
+
+   **GitHub Credentials** (Personal Access Token):
+   - Jenkins → Manage Jenkins → Credentials → Global
+   - Add Credentials → Username with password
+   - ID: `github-credentials`
+   - Username: Your GitHub username
+   - Password: GitHub Personal Access Token (repo, workflow scopes)
+
+   **AWS Credentials** (ECR Access):
+   - Add Credentials → AWS Credentials
+   - ID: `aws-credentials`
+   - Access Key ID: Your AWS Access Key
+   - Secret Access Key: Your AWS Secret Key
+
+   **Kubeconfig for EKS Access**:
+   ```bash
+   # Generate kubeconfig file
+   aws eks update-kubeconfig --region eu-central-1 --name todo-app-staging --kubeconfig staging-kubeconfig.yaml
+   ```
+   - Add Credentials → Secret file
+   - ID: `kubeconfig`
+   - File: Upload `staging-kubeconfig.yaml`
+
+   **Fix Node Group RBAC** (Required for Helm deployments):
+   ```bash
+   # Allow EKS node groups to access secrets for Helm
+   kubectl create clusterrolebinding nodes-cluster-admin --clusterrole=cluster-admin --group=system:nodes
+   ```
+
+4. **Configure Jenkins Environment Variables**:
+
+   **Global Environment Variables** (Jenkins → Manage Jenkins → Configure System):
+   ```bash
+   ECR_REGISTRY=168155204271.dkr.ecr.eu-central-1.amazonaws.com
+   USER_SERVICE_REPO=todo-user-service
+   TODO_SERVICE_REPO=todo-todo-service
+   FRONTEND_REPO=todo-frontend
+   AWS_DEFAULT_REGION=eu-central-1
+   ```
+
+5. **Create Pipeline Job**:
+   - New Item → Pipeline
+   - Job name: `todo-app-ci-cd`
+   - Pipeline script from SCM
+   - Repository URL: `https://github.com/KeremAR/cv-project`
+   - Credentials: `github-credentials`
+   - Script Path: `Jenkinsfile`
 
 ### 📋 Planned
 - **Backend Database Layer**: Complete PostgreSQL integration with automatic environment detection
