@@ -140,23 +140,20 @@ spec:
 
         stage('Push to ECR') {
             steps {
-                // Docker container'ı kullan (docker push için gerekli)
-                container('docker') {
-                    withCredentials([aws(credentialsId: 'aws-credentials')]) {
-                        sh '''
-                            echo "📦 Installing AWS CLI..."
-                            apk add --no-cache aws-cli
+                script {
+                    // First get ECR token using aws-cli container
+                    container('aws-cli') {
+                        withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                            sh '''
+                                echo "📦 Logging into ECR..."
+                                aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            '''
+                        }
+                    }
 
-                            echo "📦 Logging into ECR..."
-                            set +e  # Don't exit on error
-                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} > /tmp/ecr_token
-                            if [ $? -eq 0 ]; then
-                                cat /tmp/ecr_token | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                                rm -f /tmp/ecr_token
-                            else
-                                echo "❌ Failed to get ECR login token"
-                                exit 1
-                            fi
+                    // Then push images using docker container
+                    container('docker') {
+                        sh '''
                             set -e  # Re-enable exit on error
 
                             echo "🚀 Pushing images to ECR with tag: ${IMAGE_TAG}"
