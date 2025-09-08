@@ -2,8 +2,8 @@
 const nextConfig = {
   output: 'standalone',
   env: {
-    USER_SERVICE_URL: process.env.USER_SERVICE_URL || 'http://localhost:8001',
-    TODO_SERVICE_URL: process.env.TODO_SERVICE_URL || 'http://localhost:8002',
+    NEXT_PUBLIC_USER_SERVICE_URL: process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8001',
+    NEXT_PUBLIC_TODO_SERVICE_URL: process.env.NEXT_PUBLIC_TODO_SERVICE_URL || 'http://localhost:8002',
   },
 }
 
