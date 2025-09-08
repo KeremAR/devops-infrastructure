@@ -174,7 +174,7 @@ spec:
 
                             echo "🚀 Deploying to ${TARGET_ENV} environment..."
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
-                                --namespace todo-app-${TARGET_ENV} \
+                                --namespace todo-app \
                                 --create-namespace \
                                 --set image.tag=${IMAGE_TAG} \
                                 --set userService.image.repository=${USER_SERVICE_REPO} \
