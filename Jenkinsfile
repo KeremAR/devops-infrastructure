@@ -129,7 +129,19 @@ spec:
                         container('docker') {
                             sh '''
                                 echo "🏗️ Building frontend image..."
-                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} frontend/
+                                # Extract ingress URL from Helm values file
+                                INGRESS_URL=$(grep "ingressUrl:" helm/todo-app/values-${TARGET_ENV}.yaml | cut -d'"' -f2)
+
+                                if [ -z "$INGRESS_URL" ]; then
+                                    echo "⚠️ No ingressUrl found in values-${TARGET_ENV}.yaml, using localhost"
+                                    INGRESS_URL="http://localhost"
+                                fi
+
+                                echo "🌐 Building frontend with ingress URL: ${INGRESS_URL}"
+                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} \
+                                    --build-arg NEXT_PUBLIC_USER_SERVICE_URL="${INGRESS_URL}/api/users" \
+                                    --build-arg NEXT_PUBLIC_TODO_SERVICE_URL="${INGRESS_URL}/api/todos" \
+                                    frontend/
                                 docker tag ${FRONTEND_REPO}:${IMAGE_TAG} ${FRONTEND_REPO}:latest
                             '''
                         }
