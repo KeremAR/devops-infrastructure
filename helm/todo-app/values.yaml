@@ -83,6 +83,13 @@ ingress:
 secrets:
   secretKey: "production-secret-key-change-this"
 
+# Database configuration
+database:
+  host: "localhost"
+  port: "5432"
+  name: "todoapp"
+  user: "todouser"
+
 # Environment-specific overrides
 environments:
   dev:

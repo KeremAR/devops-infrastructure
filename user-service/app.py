@@ -9,6 +9,15 @@ from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
+# PostgreSQL support
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
 app = FastAPI(title="User Service", version="1.0.0")
 
 # Add CORS middleware
@@ -50,28 +59,66 @@ class User(BaseModel):
     email: str
 
 
-# Database setup
+# Database configuration
+ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "todoapp")
+DB_USER = os.getenv("DB_USER", "todouser")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+
+
 def get_db():
-    db_path = "/app/data/users.db"
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+        # SQLite for local development
+        db_path = "/app/data/users.db"
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+    else:
+        # PostgreSQL for staging/production
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            cursor_factory=RealDictCursor,
+        )
+        return conn
 
 
 def init_db():
     conn = get_db()
-    conn.execute(
+    if ENVIRONMENT == "local" or not POSTGRES_AVAILABLE:
+        # SQLite schema
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL
+            )
         """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            hashed_password TEXT NOT NULL
         )
-    """
-    )
-    conn.commit()
+        conn.commit()
+    else:
+        # PostgreSQL schema
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL
+            )
+        """
+        )
+        conn.commit()
+        cursor.close()
     conn.close()
 
 

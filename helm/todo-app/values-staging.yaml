@@ -23,3 +23,10 @@ frontend:
 
 secrets:
   secretKey: "staging-secret-key-from-aws-secrets-manager"
+
+# Database configuration for staging
+database:
+  host: "staging-database.cho6ku6kyphw.eu-central-1.rds.amazonaws.com"
+  port: "5432"
+  name: "todoapp"
+  user: "todouser"
