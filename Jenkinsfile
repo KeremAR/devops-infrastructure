@@ -189,10 +189,12 @@ spec:
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
                                 --namespace todo-app \
                                 --create-namespace \
-                                --set image.tag=${IMAGE_TAG} \
                                 --set userService.image.repository=${USER_SERVICE_REPO} \
+                                --set userService.image.tag=${IMAGE_TAG} \
                                 --set todoService.image.repository=${TODO_SERVICE_REPO} \
+                                --set todoService.image.tag=${IMAGE_TAG} \
                                 --set frontend.image.repository=${FRONTEND_REPO} \
+                                --set frontend.image.tag=${IMAGE_TAG} \
                                 --values helm/todo-app/values-${TARGET_ENV}.yaml
                         '''
                     }
