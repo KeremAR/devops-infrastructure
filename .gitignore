@@ -57,6 +57,8 @@ data/
 # Kubernetes secrets (if any)
 *secret*.yaml
 *Secret*.yaml
+# Allow Helm secret templates
+!helm/**/templates/secrets.yaml
 
 # Terraform
 terraform/.terraform/

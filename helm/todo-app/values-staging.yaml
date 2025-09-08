@@ -36,3 +36,4 @@ database:
   port: "5432"
   name: "todoapp"
   user: "todouser"
+  password: ">8](^V:cbBxTBa_$"
