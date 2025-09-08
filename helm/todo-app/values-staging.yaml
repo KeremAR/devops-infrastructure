@@ -34,6 +34,6 @@ secrets:
 database:
   host: "staging-database.cho6ku6kyphw.eu-central-1.rds.amazonaws.com"
   port: "5432"
-  name: "todoapp"
+  name: "todoapp_staging"
   user: "todouser"
   password: ">8](^V:cbBxTBa_$"
