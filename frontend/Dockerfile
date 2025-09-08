@@ -10,6 +10,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps
 
+# Build arguments for Next.js environment variables
+ARG NEXT_PUBLIC_USER_SERVICE_URL
+ARG NEXT_PUBLIC_TODO_SERVICE_URL
+
+# Set environment variables for build
+ENV NEXT_PUBLIC_USER_SERVICE_URL=$NEXT_PUBLIC_USER_SERVICE_URL
+ENV NEXT_PUBLIC_TODO_SERVICE_URL=$NEXT_PUBLIC_TODO_SERVICE_URL
+
 COPY . .
 RUN npm run build
 

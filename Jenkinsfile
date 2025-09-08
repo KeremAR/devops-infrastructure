@@ -118,8 +118,21 @@ spec:
                     steps {
                         container('docker') {
                             sh '''
-                                echo "🏗️ Building frontend image..."
-                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} frontend/
+                                echo "🏗️ Building frontend image with environment variables..."
+
+                                # Set build args based on target environment
+                                if [ "${TARGET_ENV}" = "staging" ]; then
+                                    INGRESS_URL="http://a410129ad4bd54fe4ae4cc2b9d369c6e-38a6d41d86618272.elb.eu-central-1.amazonaws.com"
+                                elif [ "${TARGET_ENV}" = "prod" ]; then
+                                    INGRESS_URL="https://your-prod-domain.com"
+                                else
+                                    INGRESS_URL="http://localhost"
+                                fi
+
+                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} \
+                                    --build-arg NEXT_PUBLIC_USER_SERVICE_URL="${INGRESS_URL}/api/users" \
+                                    --build-arg NEXT_PUBLIC_TODO_SERVICE_URL="${INGRESS_URL}/api/todos" \
+                                    frontend/
                                 docker tag ${FRONTEND_REPO}:${IMAGE_TAG} ${FRONTEND_REPO}:latest
                             '''
                         }
