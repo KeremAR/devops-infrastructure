@@ -49,7 +49,7 @@ spec:
         TARGET_ENV = "${params.ENVIRONMENT}"
 
         // Cluster configuration - dynamically set based on environment
-        EKS_CLUSTER_NAME = "${TARGET_ENV}-cluster"
+        EKS_CLUSTER_NAME = "todo-app-${TARGET_ENV}"
         AWS_REGION = 'eu-central-1'
     }
 
