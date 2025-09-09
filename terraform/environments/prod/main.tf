@@ -19,7 +19,7 @@ terraform {
   backend "s3" {
     bucket = "todo-app-terraform-state"
     key    = "prod/terraform.tfstate"
-    region = "us-west-2"
+    region = "eu-central-1"
   }
 }
 

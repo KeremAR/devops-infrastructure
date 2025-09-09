@@ -1,0 +1,72 @@
+# ArgoCD Installation for EKS
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+# ArgoCD Installation
+# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# ArgoCD Server Service - LoadBalancer for AWS
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server-lb
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: argocd-server
+---
+# ArgoCD Repository Secret for Private Repo Access
+# Create this manually with your actual values:
+# kubectl create secret generic cv-project-repo -n argocd \
+#   --from-literal=type=git \
+#   --from-literal=url=https://github.com/YOUR_USERNAME/cv-project \
+#   --from-literal=username=YOUR_USERNAME \
+#   --from-literal=password=YOUR_GITHUB_TOKEN
+# kubectl label secret cv-project-repo -n argocd argocd.argoproj.io/secret-type=repository
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cv-project-repo-template
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  type: git
+  url: "REPLACE_WITH_YOUR_REPO_URL"
+  # username: "REPLACE_WITH_YOUR_USERNAME"
+  # password: "REPLACE_WITH_YOUR_TOKEN"
+---
+# ArgoCD RBAC Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    g, argocd-admins, role:admin

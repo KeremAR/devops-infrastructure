@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-config
+  namespace: argocd
+data:
+  # These values should be set during deployment
+  # Example deployment:
+  # kubectl create configmap argocd-config -n argocd \
+  #   --from-literal=REPO_URL=https://github.com/YOUR_USERNAME/cv-project \
+  #   --from-literal=ECR_REGISTRY=YOUR_ACCOUNT.dkr.ecr.REGION.amazonaws.com \
+  #   --from-literal=IMAGE_TAG=latest
+
+  REPO_URL: "https://github.com/YOUR_USERNAME/cv-project"
+  ECR_REGISTRY: "YOUR_ACCOUNT.dkr.ecr.REGION.amazonaws.com"
+  IMAGE_TAG: "latest"

@@ -1,7 +1,13 @@
+@Library('cv-project-shared-library') _
+
 pipeline {
     parameters {
         string(name: 'ENVIRONMENT', defaultValue: 'staging', description: 'Target Environment (staging/prod)')
         string(name: 'IMAGE_TAG_OVERRIDE', defaultValue: '', description: 'Override image tag (leave empty for auto)')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
+        booleanParam(name: 'SKIP_SECURITY_SCAN', defaultValue: false, description: 'Skip security scans')
+        booleanParam(name: 'PROMOTE_TO_PROD', defaultValue: false, description: 'Promote staging image to production')
+        string(name: 'STAGING_IMAGE_TAG', defaultValue: '', description: 'Staging image tag to promote (required for promotion)')
     }
 
     agent {
@@ -37,6 +43,24 @@ spec:
     - sleep
     args:
     - 99d
+  - name: sonar-scanner
+    image: sonarqube/sonar-scanner-cli:latest
+    command:
+    - sleep
+    args:
+    - 99d
+  - name: trivy
+    image: aquasec/trivy:latest
+    command:
+    - sleep
+    args:
+    - 99d
+  - name: argocd-cli
+    image: argoproj/argocd:latest
+    command:
+    - sleep
+    args:
+    - 99d
   volumes: []
 """
         }
@@ -65,6 +89,7 @@ spec:
         }
 
         stage('Run Tests') {
+            when { not { params.SKIP_TESTS } }
             parallel {
                 stage('Backend Tests') {
                     steps {
@@ -85,6 +110,12 @@ spec:
                             '''
                         }
                     }
+                    post {
+                        always {
+                            publishTestResults testResultsPattern: '**/test-results.xml'
+                            publishCoverage adapters: [coberturaAdapter('**/coverage.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+                        }
+                    }
                 }
                 stage('Frontend Tests') {
                     steps {
@@ -100,51 +131,111 @@ spec:
             }
         }
 
+        stage('Code Quality Analysis') {
+            when { not { params.SKIP_TESTS } }
+            parallel {
+                stage('SonarQube - Backend') {
+                    steps {
+                        sonarQubeAnalysis([
+                            projectName: 'todo-app-backend',
+                            sources: 'user-service,todo-service',
+                            language: 'py',
+                            exclusions: '**/__pycache__/**,**/test_*.py,**/.pytest_cache/**'
+                        ])
+                    }
+                }
+                stage('SonarQube - Frontend') {
+                    steps {
+                        sonarQubeAnalysis([
+                            projectName: 'todo-app-frontend',
+                            sources: 'frontend/app,frontend/components',
+                            language: 'js',
+                            exclusions: '**/node_modules/**,**/coverage/**,**/*.test.js,**/*.spec.js'
+                        ])
+                    }
+                }
+            }
+        }
+
         stage('Build Images') {
             parallel {
                 stage('Build User Service') {
                     steps {
-                        container('docker') {
-                            sh '''
-                                echo "🏗️ Building user-service image..."
-                                docker build -t ${USER_SERVICE_REPO}:${IMAGE_TAG} -f user-service/Dockerfile .
-                                docker tag ${USER_SERVICE_REPO}:${IMAGE_TAG} ${USER_SERVICE_REPO}:latest
-                            '''
-                        }
+                        buildDockerImage([
+                            serviceName: 'user-service',
+                            repository: env.USER_SERVICE_REPO,
+                            tag: env.IMAGE_TAG,
+                            dockerfile: 'user-service/Dockerfile',
+                            context: '.'
+                        ])
                     }
                 }
                 stage('Build Todo Service') {
                     steps {
-                        container('docker') {
-                            sh '''
-                                echo "🏗️ Building todo-service image..."
-                                docker build -t ${TODO_SERVICE_REPO}:${IMAGE_TAG} -f todo-service/Dockerfile .
-                                docker tag ${TODO_SERVICE_REPO}:${IMAGE_TAG} ${TODO_SERVICE_REPO}:latest
-                            '''
-                        }
+                        buildDockerImage([
+                            serviceName: 'todo-service',
+                            repository: env.TODO_SERVICE_REPO,
+                            tag: env.IMAGE_TAG,
+                            dockerfile: 'todo-service/Dockerfile',
+                            context: '.'
+                        ])
                     }
                 }
                 stage('Build Frontend') {
                     steps {
-                        container('docker') {
-                            sh '''
-                                echo "🏗️ Building frontend image..."
-                                # Extract ingress URL from Helm values file
-                                INGRESS_URL=$(grep "ingressUrl:" helm/todo-app/values-${TARGET_ENV}.yaml | cut -d'"' -f2)
+                        script {
+                            def ingressUrl = sh(
+                                script: "grep 'ingressUrl:' helm/todo-app/values-${TARGET_ENV}.yaml | cut -d'\"' -f2 || echo 'http://localhost'",
+                                returnStdout: true
+                            ).trim()
 
-                                if [ -z "$INGRESS_URL" ]; then
-                                    echo "⚠️ No ingressUrl found in values-${TARGET_ENV}.yaml, using localhost"
-                                    INGRESS_URL="http://localhost"
-                                fi
-
-                                echo "🌐 Building frontend with ingress URL: ${INGRESS_URL}"
-                                docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} \
-                                    --build-arg NEXT_PUBLIC_USER_SERVICE_URL="${INGRESS_URL}/api/users" \
-                                    --build-arg NEXT_PUBLIC_TODO_SERVICE_URL="${INGRESS_URL}/api/todos" \
-                                    frontend/
-                                docker tag ${FRONTEND_REPO}:${IMAGE_TAG} ${FRONTEND_REPO}:latest
-                            '''
+                            buildDockerImage([
+                                serviceName: 'frontend',
+                                repository: env.FRONTEND_REPO,
+                                tag: env.IMAGE_TAG,
+                                context: 'frontend/',
+                                buildArgs: [
+                                    'NEXT_PUBLIC_USER_SERVICE_URL': "${ingressUrl}/api/users",
+                                    'NEXT_PUBLIC_TODO_SERVICE_URL': "${ingressUrl}/api/todos"
+                                ]
+                            ])
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Security Scanning') {
+            when { not { params.SKIP_SECURITY_SCAN } }
+            parallel {
+                stage('Trivy - User Service') {
+                    steps {
+                        trivyScan([
+                            serviceName: 'user-service',
+                            imageName: "${env.USER_SERVICE_REPO}:${env.IMAGE_TAG}",
+                            severity: 'HIGH,CRITICAL',
+                            failOnCritical: false
+                        ])
+                    }
+                }
+                stage('Trivy - Todo Service') {
+                    steps {
+                        trivyScan([
+                            serviceName: 'todo-service',
+                            imageName: "${env.TODO_SERVICE_REPO}:${env.IMAGE_TAG}",
+                            severity: 'HIGH,CRITICAL',
+                            failOnCritical: false
+                        ])
+                    }
+                }
+                stage('Trivy - Frontend') {
+                    steps {
+                        trivyScan([
+                            serviceName: 'frontend',
+                            imageName: "${env.FRONTEND_REPO}:${env.IMAGE_TAG}",
+                            severity: 'HIGH,CRITICAL',
+                            failOnCritical: false
+                        ])
                     }
                 }
             }
@@ -179,42 +270,114 @@ spec:
             }
         }
 
-        stage('Deploy to Environment') {
+        stage('Promote to Production') {
+            when {
+                allOf {
+                    params.PROMOTE_TO_PROD
+                    environment 'production'
+                    expression { params.STAGING_IMAGE_TAG != '' }
+                }
+            }
             steps {
                 script {
-                    // First authenticate with EKS using aws-cli container
-                    container('aws-cli') {
-                        sh '''
-                            echo "🔐 Authenticating with EKS cluster..."
-                            aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
-                        '''
+                    echo "🚀 Promoting staging image ${params.STAGING_IMAGE_TAG} to production..."
+
+                    // Tag staging images for production
+                    container('docker') {
+                        withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                            sh '''
+                                # Install AWS CLI
+                                apk add --no-cache aws-cli
+
+                                # Login to ECR
+                                aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+                                # Pull staging images
+                                docker pull ${USER_SERVICE_REPO}:${STAGING_IMAGE_TAG}
+                                docker pull ${TODO_SERVICE_REPO}:${STAGING_IMAGE_TAG}
+                                docker pull ${FRONTEND_REPO}:${STAGING_IMAGE_TAG}
+
+                                # Tag for production
+                                PROD_TAG="prod-${BUILD_NUMBER}"
+                                docker tag ${USER_SERVICE_REPO}:${STAGING_IMAGE_TAG} ${USER_SERVICE_REPO}:${PROD_TAG}
+                                docker tag ${TODO_SERVICE_REPO}:${STAGING_IMAGE_TAG} ${TODO_SERVICE_REPO}:${PROD_TAG}
+                                docker tag ${FRONTEND_REPO}:${STAGING_IMAGE_TAG} ${FRONTEND_REPO}:${PROD_TAG}
+
+                                # Push production tags
+                                docker push ${USER_SERVICE_REPO}:${PROD_TAG}
+                                docker push ${TODO_SERVICE_REPO}:${PROD_TAG}
+                                docker push ${FRONTEND_REPO}:${PROD_TAG}
+
+                                # Set production image tag
+                                echo "PROD_TAG=${PROD_TAG}" > prod_tag.env
+                            '''
+                        }
                     }
 
-                    // Then deploy with helm container
-                    container('helm') {
-                        sh '''
-                            echo "🚀 Deploying to ${TARGET_ENV} environment..."
+                    // Read production tag
+                    def prodTag = sh(script: 'cat prod_tag.env | cut -d= -f2', returnStdout: true).trim()
+                    env.PROD_IMAGE_TAG = prodTag
+                }
+            }
+        }
 
-                            # Get dynamic values from infrastructure
-                            INGRESS_URL=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "http://localhost")
-                            if [ "$INGRESS_URL" != "http://localhost" ]; then
-                                INGRESS_URL="http://${INGRESS_URL}"
-                            fi
+        stage('Deploy to Environment') {
+            parallel {
+                stage('Helm Deploy') {
+                    when { not { params.PROMOTE_TO_PROD } }
+                    steps {
+                        script {
+                            // Traditional Helm deployment for immediate deployment
+                            container('aws-cli') {
+                                sh '''
+                                    echo "🔐 Authenticating with EKS cluster..."
+                                    aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
+                                '''
+                            }
 
-                            echo "📍 Using ingress URL: ${INGRESS_URL}"
+                            container('helm') {
+                                sh '''
+                                    echo "🚀 Deploying to ${TARGET_ENV} environment via Helm..."
 
-                            helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
-                                --namespace todo-app \
-                                --create-namespace \
-                                --set global.ingressUrl="${INGRESS_URL}" \
-                                --set userService.image.repository=${USER_SERVICE_REPO} \
-                                --set userService.image.tag=${IMAGE_TAG} \
-                                --set todoService.image.repository=${TODO_SERVICE_REPO} \
-                                --set todoService.image.tag=${IMAGE_TAG} \
-                                --set frontend.image.repository=${FRONTEND_REPO} \
-                                --set frontend.image.tag=${IMAGE_TAG} \
-                                --values helm/todo-app/values-${TARGET_ENV}.yaml
-                        '''
+                                    # Get dynamic values from infrastructure
+                                    INGRESS_URL=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "http://localhost")
+                                    if [ "$INGRESS_URL" != "http://localhost" ]; then
+                                        INGRESS_URL="http://${INGRESS_URL}"
+                                    fi
+
+                                    echo "📍 Using ingress URL: ${INGRESS_URL}"
+
+                                    helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
+                                        --namespace todo-app \
+                                        --set global.ingressUrl="${INGRESS_URL}" \
+                                        --set userService.image.repository=${USER_SERVICE_REPO} \
+                                        --set userService.image.tag=${IMAGE_TAG} \
+                                        --set todoService.image.repository=${TODO_SERVICE_REPO} \
+                                        --set todoService.image.tag=${IMAGE_TAG} \
+                                        --set frontend.image.repository=${FRONTEND_REPO} \
+                                        --set frontend.image.tag=${IMAGE_TAG} \
+                                        --values helm/todo-app/values-${TARGET_ENV}.yaml
+                                '''
+                            }
+                        }
+                    }
+                }
+                stage('ArgoCD GitOps') {
+                    when {
+                        anyOf {
+                            allOf { environment 'production'; params.PROMOTE_TO_PROD }
+                            params.USE_GITOPS
+                        }
+                    }
+                    steps {
+                        script {
+                            def imageTag = params.PROMOTE_TO_PROD ? env.PROD_IMAGE_TAG : env.IMAGE_TAG
+                            deployWithArgoCD([
+                                appName: "todo-app-${env.TARGET_ENV}",
+                                imageTag: imageTag,
+                                serverUrl: "https://argocd.your-domain.com"
+                            ])
+                        }
                     }
                 }
             }
