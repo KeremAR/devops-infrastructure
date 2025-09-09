@@ -55,28 +55,28 @@ resource "aws_subnet" "private" {
   }
 }
 
-# Elastic IPs for NAT Gateways
+# Single Elastic IP for cost optimization
 resource "aws_eip" "nat" {
-  count = length(var.public_subnets)
+  count = 1
 
   domain = "vpc"
   depends_on = [aws_internet_gateway.main]
 
   tags = {
-    Name        = "${var.environment}-nat-eip-${count.index + 1}"
+    Name        = "${var.environment}-nat-eip"
     Environment = var.environment
   }
 }
 
-# NAT Gateways
+# Single NAT Gateway for cost optimization
 resource "aws_nat_gateway" "main" {
-  count = length(var.public_subnets)
+  count = 1
 
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
 
   tags = {
-    Name        = "${var.environment}-nat-${count.index + 1}"
+    Name        = "${var.environment}-nat"
     Environment = var.environment
   }
 
@@ -106,7 +106,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Route Tables for Private Subnets
+# Route Tables for Private Subnets - All use single NAT Gateway
 resource "aws_route_table" "private" {
   count = length(var.private_subnets)
 
@@ -114,7 +114,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[0].id
   }
 
   tags = {

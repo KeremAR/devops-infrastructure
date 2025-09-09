@@ -194,9 +194,19 @@ spec:
                     container('helm') {
                         sh '''
                             echo "🚀 Deploying to ${TARGET_ENV} environment..."
+
+                            # Get dynamic values from infrastructure
+                            INGRESS_URL=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "http://localhost")
+                            if [ "$INGRESS_URL" != "http://localhost" ]; then
+                                INGRESS_URL="http://${INGRESS_URL}"
+                            fi
+
+                            echo "📍 Using ingress URL: ${INGRESS_URL}"
+
                             helm upgrade --install todo-app-${TARGET_ENV} ./helm/todo-app \
                                 --namespace todo-app \
                                 --create-namespace \
+                                --set global.ingressUrl="${INGRESS_URL}" \
                                 --set userService.image.repository=${USER_SERVICE_REPO} \
                                 --set userService.image.tag=${IMAGE_TAG} \
                                 --set todoService.image.repository=${TODO_SERVICE_REPO} \

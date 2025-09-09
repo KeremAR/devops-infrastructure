@@ -4,6 +4,7 @@
 resource "aws_ecr_repository" "user_service" {
   name                 = "todo-user-service"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -19,6 +20,7 @@ resource "aws_ecr_repository" "user_service" {
 resource "aws_ecr_repository" "todo_service" {
   name                 = "todo-todo-service"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -34,6 +36,7 @@ resource "aws_ecr_repository" "todo_service" {
 resource "aws_ecr_repository" "frontend" {
   name                 = "todo-frontend"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true

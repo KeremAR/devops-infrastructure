@@ -32,8 +32,8 @@ export default function Home() {
     password: ''
   })
 
-  const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8001'
-  const TODO_SERVICE_URL = process.env.NEXT_PUBLIC_TODO_SERVICE_URL || 'http://localhost:8002'
+  const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:3131'
+  const TODO_SERVICE_URL = process.env.NEXT_PUBLIC_TODO_SERVICE_URL || 'http://localhost:3131'
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
